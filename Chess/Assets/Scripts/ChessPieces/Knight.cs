@@ -27,7 +27,7 @@ public class Knight : ChessPiece
                 r.Add(new Vector2Int(x,y));
 
         x = currentX - 2;
-        y = currentY - 1;
+        y = currentY + 1;
         if(x >= 0 && y < tileCountY)
             if(board[x,y] == null || board[x,y].team != team)
                 r.Add(new Vector2Int(x,y));
