@@ -2,6 +2,13 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+public enum SpecialMove{
+    none =  0,
+    Enpassant,
+    Castling,
+    Promotion
+}
+
 public class ChessBoard : MonoBehaviour
 {
     [Header("Art Stuff")]
@@ -32,6 +39,8 @@ public class ChessBoard : MonoBehaviour
     private Vector2Int currentHover;
     private Vector3 bounds;
     private bool isWhiteTurn;
+    private SpecialMove specialMove;
+    private List<Vector2Int[]> moveList = new List<Vector2Int[]>();
 
     private void Awake() {
         isWhiteTurn = true;
@@ -73,6 +82,8 @@ public class ChessBoard : MonoBehaviour
 
                         //get a list of all possible moves and highlight them
                         availableMoves = currentlyDragging.getAvailableMoves(ref chessPieces, tileCount_X, tileCount_Y);
+                        //get a list of Special Moves
+                        specialMove = currentlyDragging.getSpecialMove(ref chessPieces, ref moveList, ref availableMoves);
                         highlightTiles();
                     }
                 }
@@ -230,7 +241,8 @@ public class ChessBoard : MonoBehaviour
 
         //Fields Reset
         currentlyDragging = null;
-        availableMoves = new List<Vector2Int>();
+        availableMoves.Clear();
+        moveList.Clear();
 
         //Clean Up
         for (int x = 0; x < tileCount_X; x++)
@@ -260,8 +272,39 @@ public class ChessBoard : MonoBehaviour
         Application.Quit();
     }
     
+    //special Moves
+    private void processSpecialMove(){
+        if(specialMove == SpecialMove.Enpassant){
+            var newMove = moveList[moveList.Count - 1];
+            ChessPiece myPawn = chessPieces[newMove[1].x, newMove[1].y];
+            var targetPawnPosition = moveList[moveList.Count - 2];
+            ChessPiece enemyPawn = chessPieces[targetPawnPosition[1].x, targetPawnPosition[1].y];
+
+            if(myPawn.currentX == enemyPawn.currentX){
+                if(myPawn.currentY == enemyPawn.currentY - 1 || myPawn.currentY == enemyPawn.currentY + 1){
+                    if(enemyPawn.team == 0){
+                        deadWhites.Add(enemyPawn);
+                        enemyPawn.setScale(Vector3.one * deadSize);
+                        enemyPawn.setPosition(new Vector3(8 * tileSize, yOffSet, -1 * tileSize) 
+                                - bounds 
+                                + new Vector3(tileSize / 2, 0, tileSize / 2) 
+                                + (Vector3.forward * deathSpacing) * deadWhites.Count);
+                    }else{
+                        deadBlacks.Add(enemyPawn);
+                        enemyPawn.setScale(Vector3.one * deadSize);
+                        enemyPawn.setPosition(new Vector3(-1 * tileSize, yOffSet, 8 * tileSize) 
+                                - bounds 
+                                + new Vector3(tileSize / 2, 0, tileSize / 2) 
+                                + (Vector3.forward * deathSpacing) * deadBlacks.Count);
+                    }
+                    chessPieces[enemyPawn.currentX, enemyPawn.currentY] = null;
+                }
+            }
+        }
+    }
+
     //Operations
-    private bool containsValidMove(ref List<Vector2Int> moves, Vector2 pos){
+    private bool containsValidMove(ref List<Vector2Int> moves, Vector2Int pos){
         for (int i = 0; i < moves.Count; i++)
             if(moves[i].x == pos.x && moves[i].y == pos.y)
                 return true;
@@ -269,7 +312,7 @@ public class ChessBoard : MonoBehaviour
         return false;
     }
     private bool moveTo(ChessPiece cp, int x, int y){
-        if(!containsValidMove(ref availableMoves, new Vector2(x,y)))
+        if(!containsValidMove(ref availableMoves, new Vector2Int(x,y)))
             return false;
 
         Vector2Int previousPosition = new Vector2Int(cp.currentX, cp.currentY);
@@ -312,6 +355,9 @@ public class ChessBoard : MonoBehaviour
         positionSinglePiece(x, y);
 
         isWhiteTurn = !isWhiteTurn;
+        moveList.Add(new Vector2Int[]{previousPosition, new Vector2Int(x, y)});
+
+        processSpecialMove();
 
         return true;
     }
